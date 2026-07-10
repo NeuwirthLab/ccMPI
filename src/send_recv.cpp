@@ -14,6 +14,16 @@
 
 namespace {
 
+#define BENCH_BARRIER                                                     \
+	do {                                                              \
+		if (my_rank == 0 || my_rank == 1) {                       \
+			int _dummy = 0;                                   \
+			MPI_Sendrecv(&_dummy, 1, MPI_INT, 1 - my_rank, 0, \
+				     &_dummy, 1, MPI_INT, 1 - my_rank, 0, \
+				     MPI_COMM_WORLD, MPI_STATUS_IGNORE);  \
+		}                                                         \
+	} while (0)
+
 #ifdef USE_BLOCKING_PT2PT
 #define SEND \
 	MPI_Send((char *)msg_buffer, msg_size, MPI_CHAR, 1, 100, MPI_COMM_WORLD)
@@ -41,13 +51,13 @@ namespace {
 	{                                                                    \
 		MPI_Request req;                                             \
 		if (0 == my_rank) {                                          \
-			MPI_Barrier(MPI_COMM_WORLD);                         \
+			BENCH_BARRIER;                                       \
 			MPI_Send((char *)msg_buffer, msg_size, MPI_CHAR, 1,  \
 				 100, MPI_COMM_WORLD);                       \
 		} else {                                                     \
 			MPI_Irecv((char *)msg_buffer, msg_size, MPI_CHAR, 0, \
 				  100, MPI_COMM_WORLD, &req);                \
-			MPI_Barrier(MPI_COMM_WORLD);                         \
+			BENCH_BARRIER;                                       \
 			counter.start();                                     \
 			MPI_Wait(&req, MPI_STATUS_IGNORE);                   \
 			counter.stop();                                      \
@@ -60,10 +70,10 @@ namespace {
 		if (0 == my_rank) {                                          \
 			MPI_Isend((char *)msg_buffer, msg_size, MPI_CHAR, 1, \
 				  100, MPI_COMM_WORLD, &req);                \
-			MPI_Barrier(MPI_COMM_WORLD);                         \
+			BENCH_BARRIER; \
 			MPI_Wait(&req, MPI_STATUS_IGNORE);                   \
 		} else {                                                     \
-			MPI_Barrier(MPI_COMM_WORLD);                         \
+			BENCH_BARRIER; \
 			counter.start();                                     \
 			MPI_Recv((char *)msg_buffer, msg_size, MPI_CHAR, 0,  \
 				 100, MPI_COMM_WORLD, MPI_STATUS_IGNORE);    \
@@ -105,7 +115,7 @@ void flush_l1(EventCounter &counter, volatile char *msg_buffer,
 	} else {
 		RECV;
 	}
-	BARRIER_ALL;
+	BENCH_BARRIER;
 }
 
 void flush_l2(EventCounter &counter, volatile char *msg_buffer,
@@ -119,7 +129,7 @@ void flush_l2(EventCounter &counter, volatile char *msg_buffer,
 	} else {
 		RECV;
 	}
-	BARRIER_ALL;
+	BENCH_BARRIER;
 }
 
 void flush_l3(EventCounter &counter, volatile char *msg_buffer,
@@ -133,7 +143,7 @@ void flush_l3(EventCounter &counter, volatile char *msg_buffer,
 	} else {
 		RECV;
 	}
-	BARRIER_ALL;
+	BENCH_BARRIER;
 }
 
 void flush_l1_expected(EventCounter &counter, volatile char *msg_buffer,
@@ -141,7 +151,7 @@ void flush_l1_expected(EventCounter &counter, volatile char *msg_buffer,
 	CLEAR_L1;
 	WARMUP_L1I;
 	EXPECTED_MSG_PATTERN;
-	BARRIER_ALL;
+	BENCH_BARRIER;
 }
 
 void flush_l2_expected(EventCounter &counter, volatile char *msg_buffer,
@@ -149,7 +159,7 @@ void flush_l2_expected(EventCounter &counter, volatile char *msg_buffer,
 	CLEAR_L2;
 	WARMUP_L1I;
 	EXPECTED_MSG_PATTERN;
-	BARRIER_ALL;
+	BENCH_BARRIER;
 }
 
 void flush_l3_expected(EventCounter &counter, volatile char *msg_buffer,
@@ -157,7 +167,7 @@ void flush_l3_expected(EventCounter &counter, volatile char *msg_buffer,
 	CLEAR_L3;
 	WARMUP_L1I;
 	EXPECTED_MSG_PATTERN;
-	BARRIER_ALL;
+	BENCH_BARRIER;
 }
 
 void flush_l1_unexpected(EventCounter &counter, volatile char *msg_buffer,
@@ -165,7 +175,7 @@ void flush_l1_unexpected(EventCounter &counter, volatile char *msg_buffer,
 	CLEAR_L1;
 	WARMUP_L1I;
 	UNEXPECTED_MSG_PATTERN;
-	BARRIER_ALL;
+	BENCH_BARRIER;
 }
 
 void flush_l2_unexpected(EventCounter &counter, volatile char *msg_buffer,
@@ -173,7 +183,7 @@ void flush_l2_unexpected(EventCounter &counter, volatile char *msg_buffer,
 	CLEAR_L2;
 	WARMUP_L1I;
 	UNEXPECTED_MSG_PATTERN;
-	BARRIER_ALL;
+	BENCH_BARRIER;
 }
 
 void flush_l3_unexpected(EventCounter &counter, volatile char *msg_buffer,
@@ -181,7 +191,7 @@ void flush_l3_unexpected(EventCounter &counter, volatile char *msg_buffer,
 	CLEAR_L3;
 	WARMUP_L1I;
 	UNEXPECTED_MSG_PATTERN;
-	BARRIER_ALL;
+	BENCH_BARRIER;
 }
 
 void flush_mpi_exclusive(EventCounter &counter, volatile char *msg_buffer,
@@ -196,7 +206,7 @@ void flush_mpi_exclusive(EventCounter &counter, volatile char *msg_buffer,
 	} else {
 		RECV;
 	}
-	BARRIER_ALL;
+	BENCH_BARRIER;
 }
 void flush_mpi_exclusive_expected(EventCounter &counter,
 				  volatile char *msg_buffer,
@@ -205,7 +215,7 @@ void flush_mpi_exclusive_expected(EventCounter &counter,
 	prefetch_read_buf(msg_buffer, msg_size, cache_line_size);
 	WARMUP_L1I;
 	EXPECTED_MSG_PATTERN;
-	BARRIER_ALL;
+	BENCH_BARRIER;
 }
 
 void flush_mpi_exclusive_unexpected(EventCounter &counter,
@@ -216,7 +226,7 @@ void flush_mpi_exclusive_unexpected(EventCounter &counter,
 	prefetch_read_buf(msg_buffer, msg_size, cache_line_size);
 	WARMUP_L1I;
 	UNEXPECTED_MSG_PATTERN;
-	BARRIER_ALL;
+	BENCH_BARRIER;
 }
 
 void flush_mpi_modify(EventCounter &counter, volatile char *msg_buffer,
@@ -233,7 +243,7 @@ void flush_mpi_modify(EventCounter &counter, volatile char *msg_buffer,
 		RECV;
 		counter.stop();
 	}
-	BARRIER_ALL;
+	BENCH_BARRIER;
 }
 
 void flush_mpi_modify_expected(EventCounter &counter, volatile char *msg_buffer,
@@ -242,7 +252,7 @@ void flush_mpi_modify_expected(EventCounter &counter, volatile char *msg_buffer,
 	prefetch_modify_buf(msg_buffer, msg_size, cache_line_size);
 	WARMUP_L1I;
 	EXPECTED_MSG_PATTERN;
-	BARRIER_ALL;
+	BENCH_BARRIER;
 }
 
 void flush_mpi_modify_unexpected(EventCounter &counter,
@@ -252,7 +262,7 @@ void flush_mpi_modify_unexpected(EventCounter &counter,
 	prefetch_modify_buf(msg_buffer, msg_size, cache_line_size);
 	WARMUP_L1I;
 	UNEXPECTED_MSG_PATTERN;
-	BARRIER_ALL;
+	BENCH_BARRIER;
 }
 
 void flush_data(EventCounter &counter, volatile char *msg_buffer,
@@ -281,7 +291,7 @@ void flush_data(EventCounter &counter, volatile char *msg_buffer,
 		RECV;
 		counter.stop();
 	}
-	BARRIER_ALL;
+	BENCH_BARRIER;
 	delete[] w_buffer;
 }
 
@@ -300,7 +310,7 @@ void flush_data_expected(EventCounter &counter, volatile char *msg_buffer,
 	}
 	WARMUP_L1I;
 	EXPECTED_MSG_PATTERN;
-	BARRIER_ALL;
+	BENCH_BARRIER;
 	delete[] w_buffer;
 }
 
@@ -320,7 +330,7 @@ void flush_data_unexpected(EventCounter &counter, volatile char *msg_buffer,
 	}
 	WARMUP_L1I;
 	UNEXPECTED_MSG_PATTERN;
-	BARRIER_ALL;
+	BENCH_BARRIER;
 	delete[] w_buffer;
 }
 
@@ -333,19 +343,19 @@ void no_flush(EventCounter &counter, volatile char *msg_buffer,
 	} else {
 		RECV;
 	}
-	BARRIER_ALL;
+	BENCH_BARRIER;
 }
 
 void no_flush_expected(EventCounter &counter, volatile char *msg_buffer,
 		       const size_t &msg_size, const int &my_rank) {
 	EXPECTED_MSG_PATTERN;
-	BARRIER_ALL;
+	BENCH_BARRIER;
 }
 
 void no_flush_unexpected(EventCounter &counter, volatile char *msg_buffer,
 			 const size_t &msg_size, const int &my_rank) {
 	UNEXPECTED_MSG_PATTERN;
-	BARRIER_ALL;
+	BENCH_BARRIER;
 }
 }  // namespace
 
@@ -419,21 +429,22 @@ int main(int argc, char *argv[]) {
 				   {"cache_line_size", cache_line_size},
 				   {"my_rank", my_rank}});
 
-	// if (0 == my_rank) {
-	//	std::cout << "name,iterations,msg_size,cycles,"
-	//		  << counter.names_to_line() << ","
-	//		  << "operation" << std::endl;
-	// }
+	int val = 1, res = 0;
+
+	MPI_Allreduce(&val, &res, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+	if (0 == my_rank) std::cerr << res << " ranks checked in" << std::endl;
 
 	std::vector<char> buf(4096);
 
-	for (int i = 0; i < 100; ++i) {
-		if (0 == my_rank) {
-			MPI_Send(buf.data(), 4096, MPI_CHAR, 1, 101,
-				 MPI_COMM_WORLD);
-		} else {
-			MPI_Recv(buf.data(), 4096, MPI_CHAR, 0, 101,
-				 MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+	if (my_rank <= 1) {
+		for (int i = 0; i < 100; ++i) {
+			if (0 == my_rank) {
+				MPI_Send(buf.data(), 4096, MPI_CHAR, 1, 101,
+					 MPI_COMM_WORLD);
+			} else {
+				MPI_Recv(buf.data(), 4096, MPI_CHAR, 0, 101,
+					 MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+			}
 		}
 	}
 
@@ -471,10 +482,12 @@ int main(int argc, char *argv[]) {
 
 	BARRIER_ALL;
 
-	if (!only_bench.empty()) {
-		runner.run(only_bench);
-	} else {
-		runner.run_all();
+	if (my_rank <= 1) {
+		if (!only_bench.empty()) {
+			runner.run(only_bench);
+		} else {
+			runner.run_all();
+		}
 	}
 
 	const auto result_lines = runner.get_result_lines();
@@ -504,7 +517,7 @@ int main(int argc, char *argv[]) {
 
 #endif
 		print_result_lines(send_result_file);
-	} else {
+	} else if (1 == my_rank) {
 #ifdef USE_BLOCKING_PT2PT
 		if (recv_result_file.empty())
 			recv_result_file = "blocking_recv.csv";
