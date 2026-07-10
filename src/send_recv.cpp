@@ -363,6 +363,7 @@ int main(int argc, char *argv[]) {
 	int my_rank, n_ranks;
 
 	size_t iterations = 1000;
+	size_t skip = 100;
 	size_t min_exp = 0;
 	size_t max_exp = 17;
 	std::string papi_events_file;
@@ -377,6 +378,8 @@ int main(int argc, char *argv[]) {
 	CLI::App app("MPI Cache Flush Benchmark");
 	app.add_option("-i,--iterations", iterations,
 		       "Number of timed iterations");
+	app.add_option("-w,--warmup", skip,
+		       "Number of warmup iterations");
 	app.add_option("-e,--min-exp", min_exp,
 		       "Minimum exponent used to generate message sizes.");
 	app.add_option("-x,--max-exp", max_exp,
@@ -424,6 +427,7 @@ int main(int argc, char *argv[]) {
 
 	benchmark::BenchmarkRunner runner(counter, reporter);
 	runner.add_parameter_list({{"iterations", iterations},
+				   {"skip",skip},
 				   {"min_exp", min_exp},
 				   {"max_exp", max_exp},
 				   {"cache_line_size", cache_line_size},
